@@ -1,0 +1,121 @@
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Grid Example</title>
+
+        <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.0rc2/sdk-debug.js"></script>
+        <script type="text/javascript">
+                Rally.onReady(function() {
+                    Ext.define('CustomApp', {
+                        extend: 'Rally.app.App',
+                        componentCls: 'app',
+
+                        items: [
+                            {
+                                xtype: 'container',
+                                itemId: 'iterationFilter'
+                            },
+                            {
+                                xtype: 'container',
+                                itemId: 'grid'
+                                //width: 800
+                            }
+                        ],
+
+                        launch: function() {
+                            this.down('#iterationFilter').add({
+                                xtype: 'rallyiterationcombobox',
+                                cls: 'filter',
+                                model: 'UserStory',
+                                field: 'Iteration',
+                                listeners: {
+                                    ready: this._onIterationComboBoxLoad,
+                                    select: this._onIterationComboBoxSelect,
+                                    scope: this
+                                }
+                            });
+                        },
+
+                        _onIterationComboBoxLoad: function(comboBox) {
+                            this.iterationComboBox = comboBox;
+
+                            Rally.data.ModelFactory.getModel({
+                                type: 'UserStory',
+                                success: this._onModelRetrieved,
+                                scope: this
+                            });
+                        },                  
+
+                        _getFilter: function() {
+                            var filter = [];
+
+                            filter.push({
+                                property: 'Iteration',
+                                operator: '=',
+                                value: this.iterationComboBox.getValue()
+                            });
+
+                            return filter;
+                        },
+
+
+                        _onIterationComboBoxSelect: function() {
+                            this._onSettingsChange();
+                        },
+
+                        _onSettingsChange: function() {
+                            this.grid.filter(this._getFilter(), true, true);
+                        },
+
+                        _onModelRetrieved: function(model) {
+                            this.grid = this.down('#grid').add({
+                                xtype: 'rallygrid',
+                                model: model,
+                                columnCfgs: [
+                                    'FormattedID',
+                                    'Name',
+                                    'PlanEstimate',
+                                    {
+                                        text: 'Feature',
+                                        dataIndex: 'PortfolioItem',
+                                        renderer: function(value, metaData, record, rowIndex, colIndex, store, view) {
+                                            if (value != null) {
+                                                return value.Name;
+                                            }
+                                            return '';
+                                        }
+                                    },
+                                    'ScheduleState',
+                                    'StoryType'
+                                ],
+                                storeConfig: {
+                                    context: this.context.getDataContext(),
+                                    remoteSort: false,
+                                    filters: this._getFilter()
+                                },
+                                showPagingToolbar: true,
+                                enableEditing: false
+                            });
+                        }
+
+
+
+                    });
+                });
+
+
+              Rally.launchApp('CustomApp', {
+                  name: 'Defect Dashboard'
+              });
+        </script>
+
+        <style type="text/css">
+            .filter {
+                float: left;
+                margin: 5px 5px;
+                vertical-align: middle;
+            }
+        </style>
+    </head>
+    <body></body>
+    </html>

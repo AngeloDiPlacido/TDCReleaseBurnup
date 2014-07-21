@@ -1,0 +1,914 @@
+
+<html>
+<head>
+<meta name="Name" content="Mashup: Custom Release Burnup" />
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+<script type="text/javascript" src="https://rally1.rallydev.com/apps/1.29/sdk.js?debug=true&showHeader=false"></script>
+
+
+<link rel="stylesheet" type="text/css" href="https://rally1.rallydev.com/slm/css/rally/core.css" charset="utf-8"/>
+<link rel="stylesheet" type="text/css" href="https://rally1.rallydev.com/slm/css/slm.css" charset="utf-8"/>
+
+<script type="text/javascript">
+    var MASHUP_TYPE = 'Release';
+    var SETTINGS_COOKIE_NAME = 'mu_enhanced_velocity_settings';
+</script>
+
+
+<script type="text/javascript" src="https://rally1.rallydev.com/slm/js/slm.js"></script>
+<script type="text/javascript" src="https://rally1.rallydev.com/slm/js/help.js"></script>
+<script type="text/javascript" src="https://rally1.rallydev.com/slm/js-lib/ejsc/2.0.1/EJSChart.js"></script>
+<script type="text/javascript" src="https://rally1.rallydev.com/slm/mashup/1.13/js/batch-toolkit.js"></script>
+<script type="text/javascript" src="https://rally1.rallydev.com/slm/mashup/1.13/js/utilities.js"></script>
+<script type="text/javascript"> 
+
+var debug = false;
+function log(str) {
+	if (debug)
+		dojo.byId('debug').innerHTML += str + "<BR>";
+}
+
+function cleartext(){
+	dojo.byId('fulltext').innerHTML ="";
+}
+function hprint(str){//unconditionally prints text
+	dojo.byId('fulltext').innerHTML += str + "<BR>";
+}
+ 
+/*
+ * Add the names of the projects you want to query the stories from in this array
+ */
+var projectNames = ['Team Espresso', 'Automation Team','Continuous Delivery','EA - Zeist - Allegro - Team 1','EA - Zeist - Allegro - Team 2','Galileo','Hawaii Five-0','Performance Team','Platform Team','Regression Team','RIS-IC - BTV- Allegro 1','RIS-IC - BTV- Allegro 2','Team Benetton','Team Ducati','Team Ferrari','Team Maestro','Team Pizza','Team Soprano','Team Zathras','V Cubed','VV UI Team','Workflow Team','ZFP_Partner'];
+ 
+var rallyDataSource;
+var releaseDropdown, numIterationsDropdown;
+var comboChart, comboChartData, comboChartData2;
+var data;
+var wait;
+ 
+var releaseStartDate, releaseEndDate;
+ 
+var lastVel, bestVel, worstVel;
+/*
+ * Creates a chart from the data structure
+ */
+function updateChart(results) {
+	wait.hide();
+	var totalSGSP = 0;
+        log('# of Stretch Goals Stories: ' + results.StetchGaolStories.length);
+	for (var i = 0; i < results.StetchGaolStories.length; i++) {
+		if(results.StetchGaolStories[i].PlanEstimate != null){
+			totalSGSP = totalSGSP + results.StetchGaolStories[i].PlanEstimate;
+		}
+	}
+	var tDate = rally.sdk.util.DateTime.format(releaseEndDate, 'MM/dd');
+	hprint("<b>Release planned End Date: </b>" + tDate );
+
+	log('# of Stretch Goals Stories: ' + totalSGSP );	
+	
+	comboChartData = new google.visualization.DataTable();
+	comboChartData.addColumn('string', 'Day');
+	comboChartData.addColumn('number', 'Scope');
+	comboChartData.addColumn('number', 'Accepted');
+	comboChartData.addColumn('number', 'Last 3');
+        comboChartData.addColumn({type:'number', role:'interval'});//vertical lines for average velocity 
+        comboChartData.addColumn({type:'number', role:'interval'});//"
+	comboChartData.addColumn('number', 'Best 3');
+	comboChartData.addColumn('number', 'Worst 3');
+	comboChartData.addColumn('number', 'Min Scope');
+ 
+	var prevMaxVal, prevMinVal, prevAvgVal, scopeReached=false;
+	var date=releaseStartDate;
+	while (!scopeReached || date<=releaseEndDate) {
+		var formattedDate = rally.sdk.util.DateTime.format(date, 'MM/dd');
+		var row = [];
+		if (data.hasOwnProperty(formattedDate)) { //if the data structure contains the current date, so this date has already been passed
+			if (data[formattedDate].date == null)
+				continue;
+				
+			//day, scope, accepted
+			row.push(formattedDate);
+			row.push(data[formattedDate].cumulativeEstimateTotal);
+			row.push(data[formattedDate].cumulativeAcceptedTotal);
+			
+			row.push(null);
+			row.push(null);
+		      row.push(null);
+			row.push(null);
+			row.push(null);
+			row.push(null);
+		} else { //otherwise its a date in the future and the velocity lines need to be added
+			var formattedPrevDate = rally.sdk.util.DateTime.format(rally.sdk.util.DateTime.add(date, 'day', -1), 'MM/dd');
+			data[formattedDate] = {};
+			data[formattedDate].date = date;
+			data[formattedDate].cumulativeEstimateTotal = data[formattedPrevDate].cumulativeEstimateTotal;
+			data[formattedDate].cumulativeAcceptedTotal = data[formattedPrevDate].cumulativeAcceptedTotal;
+			data[formattedDate].lastVelocity = data[formattedPrevDate].lastVelocity;
+			data[formattedDate].worstVelocity = data[formattedPrevDate].worstVelocity;
+			data[formattedDate].bestVelocity = data[formattedPrevDate].bestVelocity;
+			
+			row.push(formattedDate);
+			row.push(data[formattedDate].cumulativeEstimateTotal);            
+			if (data[formattedDate].date <= new Date())
+				row.push(data[formattedDate].cumulativeAcceptedTotal);
+			else
+				row.push(null);
+                            
+			//avg/max/min velocity lines
+			if (rally.sdk.util.DateTime.format(new Date(), "MM/dd") == formattedDate) {//current day
+				row.push(data[formattedDate].cumulativeAcceptedTotal);
+				row.push(null);//no interval
+			      row.push(null);//
+                        row.push(data[formattedDate].cumulativeAcceptedTotal);
+				row.push(data[formattedDate].cumulativeAcceptedTotal);
+				row.push(null);
+				prevMaxVal = prevMinVal = prevAvgVal = data[formattedDate].cumulativeAcceptedTotal;
+			} 
+			else if (data[formattedDate].date > new Date()) 
+			{//future day
+
+				if(data.lastVelocity == 0 ){ 
+					scopeReached=true;			
+					break;
+				}
+                		if (((prevAvgVal+data.lastVelocity) > (data[formattedDate].cumulativeEstimateTotal - totalSGSP)) && !scopeReached){
+				hprint("<b>Estimated date of scope reached based on velocity for last 3 iterations: </b>"+formattedDate);
+	                    //only render vertical bar (interval) if scope is first reached by avg vel on this day
+      	              scopeReached=true;
+            	        row.push(prevAvgVal + data.lastVelocity);
+	                 	  row.push(null);//interval ranges from 0 to lastVelocity for a vertical line
+      		        row.push(null);//interval continued
+                  	  row.push(prevMaxVal + data.bestVelocity);
+	                    row.push(prevMinVal + data.worstVelocity);
+			        row.push(data[formattedDate].cumulativeEstimateTotal - totalSGSP);
+            	        prevAvgVal += data.lastVelocity;
+                  	  prevMaxVal += data.bestVelocity;
+	                    prevMinVal += data.worstVelocity;    
+      	          } else { 
+				
+            	        row.push(prevAvgVal + data.lastVelocity);
+				  if(formattedDate == tDate){
+		                 	row.push(0);//interval ranges from 0 to lastVelocity for a vertical line
+	      		      row.push(data[formattedDate].cumulativeEstimateTotal - totalSGSP);//interval continued
+				  }	
+				  else
+				  {
+				  	row.push(null);//no interval
+				  	row.push(null);//
+				  }
+            	        row.push(prevMaxVal + data.bestVelocity);
+                  	  row.push(prevMinVal + data.worstVelocity);
+			        row.push(data[formattedDate].cumulativeEstimateTotal - totalSGSP);
+      	              prevAvgVal += data.lastVelocity;
+	                    prevMaxVal += data.bestVelocity;
+      	              prevMinVal += data.worstVelocity;
+            	    }
+			} else {
+				row.push(null);
+                        row.push(null);
+			      row.push(null);
+				row.push(null);
+				row.push(null);
+				row.push(null);
+			}
+		}
+		comboChartData.addRow(row);
+		date = rally.sdk.util.DateTime.add(date, 'day', 1);
+
+	}
+	
+	comboChart.draw(comboChartData, {vAxis: {title: 'Story Points'}, colors: ['#333333', '#72ad81', '#6367f1', '#085478', '#ee4035', '#808080'], seriesType: 'line', series: {0: {pointSize: 5}, 1: {type: 'bars'}}});
+}
+ 
+/*
+ * Creates a data structure to populate the graph. The structure looks like this:
+ * data
+ *  |
+ *  +date within the release in the format MM/dd
+ *  | +date
+ *  | +cumulativeAcceptedTotal (aka accepted)
+ *  | +cumulativeEstimateTotal (aka scope)
+ *  |
+ *  +date within the release in the format MM/dd
+ *  | +date
+ *  | +cumulativeAcceptedTotal
+ *  | +cumulativeEstimateTotal
+ * ....
+ */
+function createDataStructure(results) {
+    log("orig: "+results.release[0].ReleaseStartDate);
+	releaseStartDate = rally.sdk.util.DateTime.fromIsoString(results.release[0].ReleaseStartDate);
+	releaseEndDate = rally.sdk.util.DateTime.fromIsoString(results.release[0].ReleaseDate);
+
+	log('releaseStartDate : ' + releaseStartDate );
+	log('releaseEndDate : ' + releaseEndDate);
+
+	data = {};
+	var releaseDataStartDate;
+	if(results.releaseData[0]!=null){
+		releaseDataStartDate = rally.sdk.util.DateTime.fromIsoString(results.releaseData[0].CreationDate);
+		if ( releaseDataStartDate > releaseStartDate )
+		{
+			var tDate = releaseStartDate;
+			do
+			{
+				var formattedtDate = rally.sdk.util.DateTime.format(tDate, 'MM/dd');		
+				data[formattedtDate] = {};
+				data[formattedtDate].date = tDate;
+				data[formattedtDate].cumulativeAcceptedTotal = 0;
+				data[formattedtDate].cumulativeEstimateTotal = 0;
+				tDate = rally.sdk.util.DateTime.add(tDate, 'day', 1);
+			}
+			while ( tDate < releaseStartDate);
+	
+		}	
+		for (var i = 0; i < results.releaseData.length; i++) {
+			var formattedDate = rally.sdk.util.DateTime.format(rally.sdk.util.DateTime.fromIsoString(results.releaseData[i].CreationDate), 'MM/dd');		
+
+			if (!data.hasOwnProperty(formattedDate)) {
+				data[formattedDate] = {};
+				data[formattedDate].date = rally.sdk.util.DateTime.fromIsoString(results.releaseData[i].CreationDate);
+				data[formattedDate].cumulativeAcceptedTotal = 0;
+				data[formattedDate].cumulativeEstimateTotal = 0;
+			}
+			data[formattedDate].cumulativeEstimateTotal += results.releaseData[i].CardEstimateTotal;
+			if (results.releaseData[i].CardState == 'Accepted') {
+							data[formattedDate].cumulativeAcceptedTotal += results.releaseData[i].CardEstimateTotal;
+			}
+		}
+		//getVelocities(results);
+		
+		data.bestVelocity = bestVel/10;
+		data.worstVelocity = worstVel/10;
+		data.lastVelocity = lastVel/10;
+	
+		hprint('<b>Average accepted for last 3 iterations: </b>' + lastVel.toFixed(2)+" Points");
+		hprint('<b>Average accepted for best 3 iterations: </b>' + bestVel.toFixed(2)+" Points");
+		hprint('<b>Average accepted for worst 3 iterations: </b>' + worstVel.toFixed(2)+" Points");
+		
+		updateChart(results);
+	}else{
+		wait.hide();
+		alert("Sorry, the requested information is not available.");
+	}
+}
+ 
+/*
+ * Queries for the required data: ReleaseCumulativeFlowData along with the stories within the release to calculate velocities
+ */
+function gatherOids(results) {
+	var queryArray = [];
+	for (var i = 0; i < results.releases.length; i++) {
+		queryArray.push('ReleaseObjectID = ' + results.releases[i].ObjectID);
+	}
+	var queryConfig = [];
+	queryConfig[0] = {
+		type: 'releasecumulativeflowdata',
+		key: 'releaseData',
+		fetch: 'CreationDate,CardEstimateTotal,CardState',
+		query: rally.sdk.util.Query.or(queryArray)
+	};
+	
+	var storiesQuery = '';
+
+	queryConfig[1] = {
+		type: 'hierarchicalrequirement',
+		key: 'stories',
+		fetch: 'Iteration,StartDate,EndDate,Name,ScheduleState,PlanEstimate,Tags,Release',
+		query: storiesQuery
+	};
+	queryConfig[2] = {
+		type: 'release',
+		key: 'release',
+		fetch: 'ReleaseStartDate,ReleaseDate',
+		query: '(Name = "' + releaseDropdown.getSelectedName() + '")'
+	};
+	queryConfig[3] = {
+		type: 'hierarchicalrequirement',
+		key: 'StetchGaolStories',
+		fetch: 'PlanEstimate',
+		query: rally.sdk.util.Query.and(['Tags.Name = "Allegro: Stretch Goal"', 'Release.Name = "'+releaseDropdown.getSelectedName()+'"'])
+
+	};
+	rallyDataSource.findAll(queryConfig, createDataStructure);
+}
+ 
+/*
+ * Starts the query chain for getting the required data
+ */
+function releaseSelected() {
+	if (releaseDropdown.getItems().length == 0)
+		return;
+	
+	//wait.hide();
+	wait.display('wait_display');
+	cleartext();
+
+ 
+	var queryConfig = [];
+	queryConfig = {
+		type: 'release',
+		key: 'releases',
+		fetch: 'ObjectID',
+		query: '(Name = "' + releaseDropdown.getSelectedName() + '")'
+	};
+	rallyDataSource.findAll(queryConfig, gatherOids);
+}
+//========================================================================================================================
+/*
+ * Initializes all the page elements
+ */
+function initPage() {
+	//rallyDataSource = new rally.sdk.data.RallyDataSource('6420936241', '6429228595', "false", "true");
+
+	//TDC Sandbox workspace - Angelo test project
+	// rallyDataSource = new rally.sdk.data.RallyDataSource('6420936241', '6429228595', 'false', 'true'); 
+
+	//TDC workspace - engage project
+	rallyDataSource = new rally.sdk.data.RallyDataSource('7621562620', '10334852311', 'false', 'true'); 
+
+	obtainVelocity();
+	
+	releaseDropdown = new rally.sdk.ui.ReleaseDropdown({ label: 'Release', defaultDisplayValue: 'IR2_2014', rememberSelection: 'false' }, rallyDataSource);
+	releaseDropdown.display('releaseDropdown_display', releaseSelected);
+	
+	numIterationsDropdown = new rally.sdk.ui.basic.Dropdown();
+	
+	wait = new rally.sdk.ui.basic.Wait();
+	
+	comboChart = new google.visualization.ComboChart(document.getElementById('chart_display'));
+}
+ 
+google.load('visualization', '1', {'packages':['corechart']});
+rally.addOnLoad(initPage);
+
+//========================================================================================================================
+//========================================================================================================================
+//========================================================================================================================
+
+var rs = {};
+var prevISet = null;
+var _chart = null;
+var _TODAY = null;
+var batchToolkit = null;
+
+rs.subscribe = function(/* String */eventStr, /* String | FxPtr */eventHandler) {
+    try {
+        dojo.subscribe(eventStr, null, eventHandler);
+    }
+    catch(e) {
+    }
+};
+
+rs.publish = function(/* String */eventStr) {
+    try {
+        dojo.publish(eventStr, arguments);
+    }
+    catch(e) {
+    }
+};
+
+rs.dateToISOString = function(date) {
+    return rally.sdk.util.DateTime.toIsoString(date, {milliseconds: true, zulu: true});
+	//return dojo.date.stamp.toISOString(date, {milliseconds: true, zulu: true});
+};
+
+function onLoaded() {
+    if (!prevISet.isReady) {
+        //console.log("Previous Iteration set is not ready.");
+        return;
+    } else {
+        //console.log("Previous Iterations ready.");
+    }
+    var data = prevISet.getData();
+}
+
+function obtainVelocity() {
+    //batchToolkit = new rally.sdk.data.RallyDataSource('5410787910', '5410787994', 'false', 'true');
+    _TODAY = rs.dateToISOString(new Date());
+
+    prevISet = new ProjectIterationSet();
+    rs.subscribe(ProjectIterationSet.loadedEvent, onLoaded);
+    prevISet.load();
+
+}
+//rally.addOnLoad(onStart);
+//=============================================================================================
+
+var _afterState = null;
+
+function Iteration_Reference(iObj) {
+    this.id = iObj.ObjectID;
+    this.name = iObj.Name;
+    this.project = iObj.Project._refObjectName;
+
+    this.cfd = null;
+
+    this.getCFDQuery = function() {
+        var query;
+        var pagesize = 1;
+
+        if (_afterState === null || _afterState === "Accepted") {
+            query = "(( IterationObjectID = " + this.id + " ) AND (CardState = Accepted))";
+        } else {
+            query = "(( IterationObjectID = " + this.id + " ) AND ((CardState = Accepted) OR (CardState = \"" + _afterState + "\")))";
+            pagesize = 2;
+        }
+        var cfd_query = {
+            key: "cfd_" + this.id,
+            type: "iterationcumulativeflowdata",
+            query: query,
+            fetch: "CardState,CardEstimateTotal,IterationObjectID",
+            order: "CreationDate desc",
+            pagesize: pagesize
+        };
+        return cfd_query;
+    };
+
+    this.addCFDs = function(cfds) {
+        tmpIterationID = 0;
+
+        for (var i = 0; i < cfds.length; i++) {
+            var cfd = cfds[i];
+
+            if (cfd.CardState === "Accepted" || cfd.CardState === _afterState) {
+
+                // If no custom state data for the last day of the iteration, the query returns two
+                // accepted state results for the same iteration.  This ensures we only grab the first result.
+                if (cfd.IterationObjectID === tmpIterationID && cfd.CardState === "Accepted") {
+                    return;
+                }
+                if (this.cfd === null) {
+                    this.cfd = cfd;
+                } else {
+                    var curr_date = new Date(this.cfd.CreationDate);
+                    var test_date = new Date(cfd.CreationDate);
+                    if (test_date > curr_date) {
+                        this.cfd = cfd;
+                    } else {
+                        if (cfd.CardEstimateTotal !== null) {
+                            this.cfd.CardEstimateTotal += cfd.CardEstimateTotal;
+                        }
+                    }
+                }
+                if (cfd.CardState === "Accepted") {
+                    tmpIterationID = cfd.IterationObjectID;
+                }
+            }
+        }
+    };
+}
+
+// ================================================================================
+
+function IterationGroup(name, projectName) {
+    this.name = name;
+    this.viewedProject = projectName;
+
+    this.iterations = [];
+
+    this.isReady = false;
+
+    this.sumAcceptedStories = 0;
+    this.sumAllStories = 0;
+
+    this.totalPoints = -1;
+
+    this.getName = function() {
+        return this.name;
+    };
+
+    this.addIteration = function(iObj) {
+        if (iObj.Name !== this.name) {
+            throw "This iteration object doesn't belong in this iteration group.";
+        }
+
+        var i = new Iteration_Reference(iObj);
+        //console.log(i);
+        this.iterations.push(i);
+    };
+
+    this.getByOID = function(oid) {
+        for (var i = 0; i < this.iterations.length; i++) {
+            if (Number(this.iterations[i].id) === Number(oid)) {
+                return this.iterations[i];
+            }
+        }
+        throw "failed to find iteration by object id: " + oid;
+    };
+
+    this.getPlannedItemQuery = function(name, type) {
+        var q = {
+            key: name,
+            type: type,
+            query: "( Iteration.Name = \"" + this.name + "\" )",
+            fetch: "PlanEstimate,ScheduleState"
+        };
+        return q;
+    };
+
+    this.addPlannedItem = function(items) {
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (item.PlanEstimate === null) {
+                continue;
+            }
+
+            if (item.ScheduleState === 'Accepted' || item.ScheduleState === _afterState) {
+                this.sumAcceptedStories += item.PlanEstimate;
+            }
+            this.sumAllStories += item.PlanEstimate;
+        }
+    };
+
+    this.load = function (loadDone) {
+        //console.log(this.name+" loading...");
+
+        // lookup cfd and hr for each iteration in this
+        var queries = [];
+        for (var i = 0; i < this.iterations.length; i++) {
+            var it_ref = this.iterations[i];
+            queries.push(it_ref.getCFDQuery());
+        }
+        queries.push(this.getPlannedItemQuery("hr", "hierarchicalrequirement"));
+        queries.push(this.getPlannedItemQuery("defect", "defect"));
+        queries.push(this.getPlannedItemQuery("defectsuite", "defectsuite"));
+
+        rallyDataSource.find(queries, dojo.hitch(this, function(resultsMap) {
+            this.parseDataItems(resultsMap);
+
+            loadDone();
+        }));
+    };
+
+    this.parseDataItems = function(itemsMap) {
+        if (!itemsMap) {
+            throw "Unable to parse null result set from server.";
+        }
+
+        for (var r in itemsMap) {
+
+            if (itemsMap.hasOwnProperty(r)) {
+                var item = itemsMap[r];
+                if (r === "hr" || r === "defect" || r === "defectsuite") {
+                    this.addPlannedItem(item);
+                } else { // CFD results
+                    var oid = r.slice(4);
+                    try {
+                        var it = this.getByOID(oid);
+                        it.addCFDs(item);
+                    } catch(e) {
+                        //console.log(e);
+                        continue;
+                    }
+                }
+            }
+        }
+
+        //console.log(this.name+" loaded.");
+        this.isReady = true;
+    };
+
+    this.getTotalPoints = function() {
+        if (this.totalPoints > -1) return this.totalPoints;
+
+        var num1 = this.getSumAcceptedStories();
+        var num2 = this.getSumAcceptedStories();
+        var num3 = this.getSumAllStories();
+
+        num3 = num3 - num2;
+        num2 = num2 - num1;
+
+        this.totalPoints = num1 + (num2 < 0 ? 0 : num2) + (num3 < 0 ? 0 : num3);
+
+        return this.totalPoints;
+    };
+
+    this.getSumAcceptedStories = function() {
+        return this.sumAcceptedStories;
+    };
+    this.getSumAllStories = function() {
+        return this.sumAllStories;
+    };
+    this.getSumAcceptedPlanEstimates = function() {
+        var total = 0;
+        for (var i = 0; i < this.iterations.length; i++) {
+            var p = this.iterations[i];
+            if (p.cfd) {
+                total += p.cfd.CardEstimateTotal;
+            }
+        }
+        return total;
+    };
+
+    this.toString = function() {
+        return "Name = " + this.name + ", num refs = " + this.iterations.length;
+    };
+}
+
+// ================================================================================
+
+function ProjectIterationSet() {
+    this.iterations = [];
+    this.iteration_name_lookup = {};
+
+    this.project = null;
+
+    this.isLoaded = false;
+    this.isReady = false;
+
+    this.totalPoints = 0;
+    this.planEstimateLabel = null;
+
+    var MAX_ITERATIONS = 10;
+    var AVG_LENGTH = 3;
+
+    this.load = function () {
+        var user_query = {
+            key: "defaultProject",
+            type: "user/userprofile/defaultProject",
+            fetch:"Name"
+        };
+        var prev_query = {
+            key: "prev_iterations",
+            type: "iteration",
+            order: "EndDate desc",
+            fetch: "EndDate,StartDate,State,ObjectID,Name,Project",
+            query: "( EndDate <= " + _TODAY + " )"
+        };										//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~QUERY FOR DATE
+        var planEstUnit_query = {
+            key: 'planEstUnit',
+            type: 'WorkspaceConfiguration',
+            fetch:'IterationEstimateUnitName'
+        };
+        var scheduleStates = {
+            key: 'scheduleStates',
+            type: 'Hierarchical Requirement',
+            attribute: 'Schedule State'
+        };
+
+        rallyDataSource.find([prev_query,planEstUnit_query,scheduleStates],
+                dojo.hitch(this, this.handleLoad));
+    };
+    this.handleLoad = function(results) {
+        this.planEstimateLabel = results.planEstUnit[0].IterationEstimateUnitName;
+        _afterState = results.scheduleStates[results.scheduleStates.length - 1];
+
+        try {
+            this.parseProjectIterations(results.prev_iterations);
+        } catch(e) {
+            this.postException(e);
+        }
+
+        for (var i = 0; i < this.iterations.length; i++) {
+            var projIteration = this.iterations[i];
+            //console.log(projIteration);
+            try {
+                projIteration.load(dojo.hitch(this, this.ready));
+            } catch(e) {
+                this.postException(e);
+            }
+        }
+    };
+
+    this.parseProjectIterations = function(i_obj_array) {
+        if (i_obj_array === null) {
+            throw "Null Previous Iterations array to parse.  can't continue.";
+        }
+
+        this.isLoaded = true;
+
+        if (i_obj_array.length < 1) {
+            throw("No previous iterations for project.");
+        }
+
+        for (var i = 0; i < i_obj_array.length; i++) {
+            var itr = i_obj_array[i];
+            var p = this.iteration_name_lookup[itr.Name];
+
+            // have we already found this iteration?  if not, add it
+            if (typeof p === "undefined") {
+                // first check if this new iteration would put us over our limit
+                if (this.iterations.length >= MAX_ITERATIONS) {
+                    break;
+                }
+
+                p = new IterationGroup(itr.Name, this.project);
+                p.addIteration(itr);
+
+                this.iterations.push(p);
+                this.iteration_name_lookup[itr.Name] = p;
+            } else { // if so, add the project reference
+                p.addIteration(itr);
+            }
+        }
+    };
+
+    this.ready = function() {
+        for (var i = 0; i < this.iterations.length; i++) {
+            var it = this.iterations[i];
+            if (!it.isReady) {
+                //console.log(it.name+" is not ready.");
+                return;
+            }
+        }
+        if (this.isReady) {
+            return;
+        }
+
+        this.isReady = true;
+        rs.publish(ProjectIterationSet.loadedEvent);
+    };
+
+    this.postException = function(msg) {
+        rs.publish("exception", msg);
+    };
+
+    /**
+     * Returns data in the format:
+     * {
+     *  bars:{
+     *  num_1_series: [[<name>,<value>], ...],
+     *  num_2_series: [[<name>,<value>], ...],
+     *  num_3_series: [[<name>,<value>], ...],
+     *  },
+     *  avgs: {
+     *  avg_last: {avg: <avg>, iterations: [<iteration>, ...]},
+     *  avg_best: {avg: <avg>, iterations: [<iteration>, ...]},
+     *  avg_worst: {avg: <avg>, iterations: [<iteration>, ...]}
+     *  }
+     * }
+     */
+    this.getData = function() {
+        if (!this.isLoaded) {
+            throw "Can't get data for project iteration set that's not loaded.";
+        }
+
+        if (this.iterations.length < 1) {
+            throw "No Iterations for this project.";
+        }
+
+        if (!this.isReady) {
+            throw "Iterations are not done loading... Please wait for ProjectSet \"ready\" announcement.";
+        }
+
+        function sortNumericAsc(a, b) {
+            return (a[0] - b[0]);
+        }
+
+        var sbData = {};
+        var bars = {};
+        var num_1_series = [];
+        var num_2_series = [];
+        var num_3_series = [];
+
+        var avgs = {};
+        var len = this.iterations.length < AVG_LENGTH ? this.iterations.length : AVG_LENGTH;
+        var avg_last = { label: "Average accepted for last 3 iterations", avg: 0, iterations: [] };
+        var avg_best = { label: "Average accepted for best 3 iterations", avg: 0, iterations: [], _to_calc: [],
+            test: function(arr, val, i_name, len) {
+                arr.sort(sortNumericAsc);
+                if (arr.length < len) {
+                    arr.push([val, i_name]);
+                    return true;
+                }
+
+                for (var i = 0; i < arr.length; i++) {
+                    if (val > arr[i][0]) {
+                        arr[i] = [val, i_name];
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        };
+        var avg_worst = { label: "Average accepted for worst 3 iterations", avg: 0, iterations: [], _to_calc: [],
+            test: function(arr, val, i_name, len) {
+                arr.sort(sortNumericAsc);
+                arr.reverse();
+                if (arr.length < len) {
+                    arr.push([val, i_name]);
+                    return true;
+                }
+
+                for (var i = 0; i < arr.length; i++) {
+                    if (val < arr[i][0]) {
+                        arr[i] = [val, i_name];
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        };
+
+        this.iterations.reverse();
+        for (var i = 0; i < this.iterations.length; i++) {
+            var it = this.iterations[i];
+            var num1 = it.getSumAcceptedStories();
+
+            if (i > this.iterations.length - len - 1) {
+                avg_last.avg += num1;
+                avg_last.iterations.push(it.name);
+            }
+
+            avg_best.test(avg_best._to_calc, num1, it.name, len);
+            avg_worst.test(avg_worst._to_calc, num1, it.name, len);
+
+
+            var num2 = it.getSumAcceptedStories();
+            var num3 = it.getSumAllStories();
+            log("  "+it.name);
+            log("      #1. "+num1+" -- Sum of Accepted Plan Estimates from last day of iteration CFD ");
+            log("      #2. "+num2+" -- Sum of plan estimates of all accepted stories");
+            log("      #3. "+num3+" -- Sum of plan estimates of all stories");
+
+            var adjusted_num2 = num2 - num1;
+            if (adjusted_num2 < 0) {
+                //console.log("Edge case: series 2 data smaller than series 1.  Setting to 0 for graph continuity.");
+                adjusted_num2 = 0;
+            }
+
+            var adjusted_num3 = num3 - num2;
+            if (adjusted_num3 < 0) {
+                //console.log("Edge case: series 3 data smaller than series 2 (unadjusted).  Setting to 0 for graph continuity.");
+                adjusted_num3 = 0;
+            }
+						
+            num_1_series.push([it.getName(), num1]);//it means iteration
+            num_2_series.push([it.getName(), adjusted_num2.toFixed(2)]);
+            num_3_series.push([it.getName(), adjusted_num3.toFixed(2)]);
+        }
+
+        if (len > 0) {
+            // last n iterations average
+            avg_last.avg = avg_last.avg / len;
+            avgs.avg_last = avg_last;
+
+            // best n iterations average
+            for (var i = 0; i < avg_best._to_calc.length; i++) {
+                avg_best.avg += avg_best._to_calc[i][0];
+                avg_best.iterations.push(avg_best._to_calc[i][1]);
+            }
+
+            avg_best.avg = avg_best.avg / len;
+            avgs.avg_best = avg_best;
+
+            // worst n iterations average
+            for (var i = 0; i < avg_worst._to_calc.length; i++) {
+                avg_worst.avg += avg_worst._to_calc[i][0];
+                avg_worst.iterations.push(avg_worst._to_calc[i][1]);
+            }
+            avg_worst.avg = avg_worst.avg / len;
+            avgs.avg_worst = avg_worst;
+        }
+		log("last "+avg_last.avg);//////////////////////////////////////////////////////////////////////////////////////////////////////////
+		log("best "+avg_best.avg);//////////////////////////////////////////////////////////////////////////////////////////////////////////
+		log("worst "+avg_worst.avg);////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		lastVel =avg_last.avg;
+		bestVel =avg_best.avg;
+		worstVel=avg_worst.avg;
+		
+        bars.num_1_series = num_1_series;
+        bars.num_2_series = num_2_series;
+        bars.num_3_series = num_3_series;
+
+        sbData.bars = bars;
+        sbData.avgs = avgs;
+
+        return sbData;
+    };
+
+    this.getIterationGroup = function(/* Number */ iterationIdx) {
+        return this.iterations[iterationIdx];
+    };
+
+    this.size = function() {
+        return this.iterations.length;
+    };
+}
+
+ProjectIterationSet.loadedEvent = "project_iterations_loaded";
+
+</script>
+<style type="text/css"> 
+#wait_display {
+	margin-left: 15px;
+}
+#chart_display {
+	height: 250px;
+}
+</style>
+</head>
+<body>
+<div id="criteria">
+	<span id="releaseDropdown_display"></span>
+	<span id="wait_display"></span>
+	<br />
+</div>
+<div id="chart_display"></div>
+<div id="debug"></div>
+<div id="fulltext"></div>
+</body>
+</html>

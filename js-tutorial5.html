@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+  "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <title>Can you vote?</title>
+    <script language="javascript" type="text/javascript">
+    </script>
+
+</head>
+<body>
+<script language="javascript" type="text/javascript">
+    var age = 18;
+    var citizen = true;
+    var name = "Mark";
+
+    if (age>=18 && citizen==true)
+    {
+        document.write("You can vote.  You are 18 and a citizen<br/>");
+    };
+    age = 18;
+    citizen = false;
+    if (age>=18 && citizen==false)
+    {
+        document.write("Sorry you cannot vote.  You are 18 but not a citizen<br/>");
+    };
+    age = 17;
+    citizen = true;
+    if (age<18 || citizen==false)
+    {
+        document.write("Sorry you cannot vote.  Either you are below 18 or you are not a citizen<br/>");
+    };
+    if (name == "Mark") {
+        document.write("You are the course instructor");
+    }
+</script>
+</body>
+</html>

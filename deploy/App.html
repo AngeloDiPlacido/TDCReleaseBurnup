@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TDCReleaseBurnUp</title>
+
+    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function () {
+                Ext.define("CustomApp",{extend:"Rally.app.App",componentCls:"app",items:[{xtype:"container",itemId:"pulldown-container",layout:{type:"hbox",align:"stretch"}},{xtype:"container",itemId:"release-container",layout:{type:"vbox",align:"stretch"}},{xtype:"container",itemId:"prd-stories-container",layout:{type:"vbox",align:"stretch"}},{xtype:"container",itemId:"nfr-stories-container",layout:{type:"vbox",align:"stretch"}}],releaseStore:void 0,releaseGrid:void 0,prdUserStoryStore:void 0,prdUserStoryGrid:void 0,nfrUserStoryStore:void 0,nfrUserStoryGrid:void 0,launch:function(){this._loadReleases()},_loadReleases:function(){var me=this,releaseComboBox=Ext.create("Rally.ui.combobox.ReleaseComboBox",{itemId:"release-combobox",fieldLabel:"Release",labelAlign:"right",width:300,listeners:{ready:me._loadData,select:me._loadData,scope:me}});me.down("#pulldown-container").add(releaseComboBox)},_loadData:function(){var me=this,selectedRelease=me.down("#release-combobox").getRecord(),selectedReleaseRef=selectedRelease.get("_ref");me._loadReleaseData(),me._loadUserStoryData()},_loadReleaseData:function(){var me=this,selectedReleaseName=me.down("#release-combobox").getRecord().get("Name"),myFilters=me._getReleaseFilters(selectedReleaseName);me.releaseStore?(me.releaseStore.setFilter(myFilters),me.releaseStore.load()):me.releaseStore=Ext.create("Rally.data.wsapi.Store",{model:"Release",autoLoad:!0,filters:myFilters,listeners:{load:function(myStore,myData,success){me._createReleaseTable(myStore,myData)},scope:me},fetch:["Name","StartDate","EndDate","PlannedVelocity","State","Theme"]})},_getReleaseFilters:function(releaseValue){var releaseFilter=Ext.create("Rally.data.wsapi.Filter",{property:"Name",operation:"=",value:releaseValue});return releaseFilter},_createReleaseTable:function(myReleaseStore,myReleaseData){var me=this,selectedRelease=me.down("#release-combobox").getRecord(),releaseName=selectedRelease.get("Name");releaseName=myReleaseData[0].get("Name"),releaseTheme=myReleaseData[0].get("Theme"),releaseName="<p><strong>"+releaseName+"</strong></p>",this.releaseTable=Ext.create("Ext.panel.Panel",{title:"Table Layout",layout:{type:"table",columns:2},defaults:{bodyStyle:"padding:20px"},items:[{html:releaseName,colspan:2},{html:"Cell B content"},{html:"Cell C content"},{html:"Cell D content"},{html:"Cell E content"},{html:releaseTheme,colspan:2}]}),this.down("#release-container").removeAll(),this.down("#release-container").add(this.releaseTable)},_loadUserStoryData:function(){var me=this,selectedReleaseName=me.down("#release-combobox").getRecord().get("Name"),selectedReleaseRef=me.down("#release-combobox").getRecord().get("_ref"),myFilters=me._getUserStoryFilters(selectedReleaseRef,"PRD");me.userStoryTree?(me.userStoryTree.setFilter(myFilters),me.userStoryTree.load()):me.userStoryTree=Ext.create("Rally.data.wsapi.TreeStoreBuilder").build({models:["userstory"],autoLoad:!0,enableHierarchy:!0}).then({success:function(store){}})},_getUserStoryFilters:function(releaseValue,requirementType){var releaseFilter=Ext.create("Rally.data.wsapi.Filter",{property:"Release",operation:"=",value:releaseValue}),tagFilter=Ext.create("Rally.data.wsapi.Filter",{property:"Tags.Name",operation:"contains",value:requirementType});return tagFilter},_inspectUserStories:function(myUserStory){var me=this,numChildren=myUserStory.get("DirectChildrenCount"),objectID=myUserStory.get("ObjectID"),myChildrenStore;me.userStoryStore=Ext.create("Rally.data.wsapi.Store",{model:"User Story",autoLoad:!0,filters:[{property:"HasParent",operator:"=",value:!1}],listeners:{load:function(myChildrenStore,myChildrenData,success){},scope:me},fetch:["FormattedID","Name","Description","c_MoSCow","Release"]})},_createPRDUserStoryGrid:function(myUserStoryStore){this.userStoryGrid=Ext.create("Rally.ui.grid.Grid",{store:myUserStoryStore,columnCfgs:["FormattedID","Name","Description","c_MoSCow","Release"]}),this.down("#prd-stories-container").add(this.userStoryGrid)}});
+
+            Rally.launchApp('CustomApp', {
+                name:"TDCReleaseBurnUp",
+	            parentRepos:""
+            });
+
+        });
+    </script>
+
+
+    <style type="text/css">
+        .app {
+     /* Add app styles here */
+}
+
+    </style>
+</head>
+<body></body>
+</html>
