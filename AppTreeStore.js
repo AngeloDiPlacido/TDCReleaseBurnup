@@ -1,13 +1,4 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>TDCReleaseBurnUp</title>
-
-    <script type="text/javascript" src="/apps/2.0rc2/sdk.js"></script>
-
-    <script type="text/javascript">
-        Rally.onReady(function () {
-                // Custom Rally App that displays Defects in a grid and filter by Iteration and/or Severity.
+// Custom Rally App that displays Defects in a grid and filter by Iteration and/or Severity.
 //
 // Note: various console debugging messages intentionally kept in the code for learning purposes
 
@@ -47,7 +38,7 @@ Ext.define('CustomApp', {
                 type: 'vbox',
                 align: 'stretch'
                 }
-        },
+        }
     ],
 
     releaseStore: undefined,       // app level references to the store and grid for easy access in various methods
@@ -60,7 +51,7 @@ Ext.define('CustomApp', {
     // Entry Point to App
     launch: function() {
 
-      console.log('TDC Release Burn Up Chart');     // see console api: https://developers.google.com/chrome-developer-tools/docs/console-api
+//      console.log('TDC Release Burn Up Chart');     // see console api: https://developers.google.com/chrome-developer-tools/docs/console-api
 
       this._loadReleases();
     },
@@ -81,7 +72,7 @@ Ext.define('CustomApp', {
             }
         });
         
-        console.log("releaseComboBox object:", releaseComboBox);
+//        console.log("releaseComboBox object:", releaseComboBox);
 
         me.down('#pulldown-container').add(releaseComboBox);
 
@@ -93,10 +84,7 @@ Ext.define('CustomApp', {
         // the _ref is unique, unlike the release name that can change; lets query on it instead!
         var selectedRelease = me.down('#release-combobox').getRecord();
         var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
-        var selectedReleaseName = selectedRelease.get('Name');
-        console.log('release reference:', selectedReleaseRef);
-        console.log('release name:', selectedReleaseName);
-        
+//        console.log('release reference:', selectedReleaseRef);
 
         me._loadReleaseData();
         me._loadUserStoryData();
@@ -109,27 +97,27 @@ Ext.define('CustomApp', {
 
       var selectedReleaseName = me.down('#release-combobox').getRecord().get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       
-      console.log('selectedReleaseName', selectedReleaseName);
+//      console.log('selectedReleaseName', selectedReleaseName);
       
       var myFilters = me._getReleaseFilters(selectedReleaseName);
       
-      console.log('my filters', myFilters, myFilters.toString());
+//      console.log('my filters', myFilters, myFilters.toString());
       // if store exists, just load new data
       if (me.releaseStore) {
-        console.log('store exists');
+//        console.log('store exists');
         me.releaseStore.setFilter(myFilters);
         me.releaseStore.load();
 
       // create store
       } else {
-        console.log('creating store');
+//        console.log('creating store');
         me.releaseStore = Ext.create('Rally.data.wsapi.Store', {     // create defectStore on the App (via this) so the code above can test for it's existence!
           model: 'Release',
           autoLoad: true,                         // <----- Don't forget to set this to true! heh
           filters: myFilters,
           listeners: {
               load: function(myStore, myData, success) {
-                  console.log('got release data!', myStore, myData);
+//                  console.log('got release data!', myStore, myData);
                   me._createReleaseTable(myStore, myData);      // if we did NOT pass scope:this below, this line would be incorrectly trying to call _createGrid() on the store which does not exist.
               },
               scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
@@ -148,7 +136,7 @@ Ext.define('CustomApp', {
             value: releaseValue
             });
       
-      console.log('release filter', releaseFilter, releaseFilter.toString());
+//      console.log('release filter', releaseFilter, releaseFilter.toString());
       
       return releaseFilter;
         
@@ -163,15 +151,15 @@ Ext.define('CustomApp', {
         var releaseName = selectedRelease.get('Name');
 
         
-        console.log('release store:', myReleaseStore);
-        console.log('release data:', myReleaseData);
+//        console.log('release store:', myReleaseStore);
+//        console.log('release data:', myReleaseData);
         
         releaseName = myReleaseData[0].get('Name');
         releaseTheme = myReleaseData[0].get('Theme');
         releaseName = '<p><strong>' + releaseName + '</strong></p>';
         
-        console.log('release name:', releaseName);
-        console.log('release theme:', releaseTheme);
+//        console.log('release name:', releaseName);
+//        console.log('release theme:', releaseTheme);
         
       this.releaseTable = Ext.create('Ext.panel.Panel', {
           title: 'Table Layout',
@@ -211,54 +199,35 @@ Ext.define('CustomApp', {
     // Get release data from Rally
     _loadUserStoryData: function() {
       var me = this;
-
-
-      var selectedRelease = me.down('#release-combobox').getRecord();
-      var selectedReleaseName = selectedRelease.get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
-      var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       
-      console.log('selectedReleaseName', selectedReleaseName, 'selectedReleaseRef', selectedReleaseRef);
+      var selectedReleaseName = me.down('#release-combobox').getRecord().get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
+      var selectedReleaseRef = me.down('#release-combobox').getRecord().get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       
-      var tagFilter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Tags.Name',
-            operation: 'contains',
-            value: 'PRD'
-        });      
-      console.log('my filters', tagFilter, tagFilter.toString());
-
+//      console.log('selectedReleaseName', selectedReleaseName, 'selectedReleaseRef', selectedReleaseRef);
+      
+      var myFilters = me._getUserStoryFilters(selectedReleaseRef, 'PRD');
+      
+//      console.log('my filters', myFilters, myFilters.toString());
       // if store exists, just load new data
-      if (me.userStoryStore) {
-        console.log('user story store exists');
-        me.userStoryStore.setFilter(tagFilter);
-        me.userStoryStore.load();
+      if (me.userStoryTree) {
+//        console.log('user story tree store exists');
+        me.userStoryTree.setFilter(myFilters);
+        me.userStoryTree.load();
 
       // create store
       } else {
-          console.log('creating user story store');
-          me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
-          model: 'User Story',
-          autoLoad: true,                         // <----- Don't forget to set this to true! heh
-          filters: tagFilter,
-          listeners: {
-              load: function(myStore, myData, success) {
-                  console.log('got user story data!', myStore, myData);
-                  var count = myStore.count();
-                  console.log("number of prd user stories found: ", count);
-                  if (count = 0) {
-                      //no PRD user stories for the release
-                      console.log('Warning: No PRD user stories in this release!');
-                  } else {
-                      //for each PRD story in the release get count of children
-                      me._inspectUserStories(myStore, selectedRelease);
-                  }
-                  if (!me.userStoryGrid) {           // only create a grid if it does NOT already exist
-                    me._createPRDUserStoryGrid(myStore);      // if we did NOT pass scope:this below, this line would be incorrectly trying to call _createGrid() on the store which does not exist.
-                  }
-              },
-              scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
-          },
-          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release']   // Look in the WSAPI docs online to see all fields available!
-        });
+
+//          console.log('creating tree store');
+          me.userStoryTree = Ext.create('Rally.data.wsapi.TreeStoreBuilder').build({
+              models: ['userstory'],
+              autoLoad: true,
+              enableHierarchy: true
+          }).then({
+              success: function(store) {
+                  //use the store
+//                  console.log('Tree Store:', store);
+              }
+          });
       }
     },
     
@@ -286,56 +255,35 @@ Ext.define('CustomApp', {
     },
     
     //inspect each user story returned from store
-    _inspectUserStories: function(myUserStoryStore) {
+    _inspectUserStories: function(myUserStory) {
         
         var me=this;
-
-        var storiesToBeRemoved = new Array();
+//        console.log('myUserStory:', myUserStory);
+        var numChildren = myUserStory.get('DirectChildrenCount');
+        var objectID = myUserStory.get('ObjectID');
+//        console.log('num of children: ', numChildren, ' objectID: ', objectID);
+        var myChildrenStore;
         
-        var selectedRelease = me.down('#release-combobox').getRecord();
-        var selectedReleaseName = selectedRelease.get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
-        var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
-
-        console.log('myUserStoryStore:', myUserStoryStore);
-        console.log('mySelectedRelease', selectedRelease);
-        var numStories = myUserStoryStore.count();
-        console.log(numStories, ' PRD stories found!');
-        var y = 0;
-        do
-        {
-            myUserStory = myUserStoryStore.getAt(y);
-            console.log('myUserStory:', myUserStory);
-            //check to see if PRD story has no children and in selected release
-            var directChildren = myUserStory.get('DirectChildrenCount');
-            var storyRelease = myUserStory.get('Release');
-            //var storyReleaseRef = storyRelease.get('_ref');
-            console.log('directChildren: ', directChildren);
-            console.log('storyRelease: ', storyRelease);
-            if (directChildren == 0) {
-                //is this story assigned to a release
-                if (storyRelease != null) {
-                    var storyReleaseRef = storyRelease._ref;
-                    console.log('storyReleaseRef:', storyReleaseRef);
-                    console.log('selectedReleaseRef:', selectedReleaseRef);
-                    if (storyReleaseRef != selectedReleaseRef) {
-                        console.log('PRD story has no children and not in the selected release - so remove it from the store');
-                        storiesToBeRemoved.push(myUserStory);
-                    }
-                } else {
-                    console.log('PRD story has no children and release is null - so remove it from the store');
-                    storiesToBeRemoved.push(myUserStory);
+        me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
+        model: 'User Story',
+          autoLoad: true,                         // <----- Don't forget to set this to true! heh
+//          filters: myFilters,
+            filters: [
+                {
+                    property: 'HasParent',
+                    operator: '=',
+                    value: false
                 }
-            } else {
-                console.log('story has children!');
-            }
-            y++;
-        } while(y<numStories);
-        console.log('user stories to be removed:', storiesToBeRemoved);
-        for (x in storiesToBeRemoved)
-        {
-            console.log('removing user story from the store:', x)
-            myUserStoryStore.remove(storiesToBeRemoved[x]);
-        }
+            ],
+          listeners: {
+              load: function(myChildrenStore, myChildrenData, success) {
+//                  console.log('got children user storys', myChildrenStore, myChildrenData);
+              },
+              scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
+          },
+          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release']   // Look in the WSAPI docs online to see all fields available!
+        });
+
     },
 
     // Create and Show a Grid of given iterations
@@ -344,7 +292,7 @@ Ext.define('CustomApp', {
       this.userStoryGrid = Ext.create('Rally.ui.grid.Grid', {
         store: myUserStoryStore,
         columnCfgs: [         // Columns to display; must be the same names specified in the fetch: above in the wsapi data store
-          'FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Parent'
+          'FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release'
         ]
       });
 
@@ -352,23 +300,3 @@ Ext.define('CustomApp', {
     }
 
 });
-
-
-            Rally.launchApp('CustomApp', {
-                name:"TDCReleaseBurnUp",
-	            parentRepos:""
-            });
-
-        });
-    </script>
-
-
-    <style type="text/css">
-        .app {
-     /* Add app styles here */
-}
-
-    </style>
-</head>
-<body></body>
-</html>
