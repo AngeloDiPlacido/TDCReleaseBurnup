@@ -42,16 +42,13 @@ Ext.define('CustomApp', {
     ],
 
     releaseStore: undefined,       // app level references to the store and grid for easy access in various methods
-    releaseGrid: undefined,
     prdUserStoryStore: undefined,
-    prdUserStoryGrid: undefined,
     nfrUserStoryStore: undefined,
-    nfrUserStoryGrid: undefined,
 
     // Entry Point to App
     launch: function() {
 
-      console.log('TDC Release Burn Up Chart');     // see console api: https://developers.google.com/chrome-developer-tools/docs/console-api
+      console.log('TDC PRD Report');     // see console api: https://developers.google.com/chrome-developer-tools/docs/console-api
 
       this._loadReleases();
     },
@@ -72,8 +69,6 @@ Ext.define('CustomApp', {
             }
         });
         
-        console.log("releaseComboBox object:", releaseComboBox);
-
         me.down('#pulldown-container').add(releaseComboBox);
 
      },
@@ -85,9 +80,6 @@ Ext.define('CustomApp', {
         var selectedRelease = me.down('#release-combobox').getRecord();
         var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
         var selectedReleaseName = selectedRelease.get('Name');
-        console.log('release reference:', selectedReleaseRef);
-        console.log('release name:', selectedReleaseName);
-        
 
         me._loadReleaseData();
         me._loadUserStoryData();
@@ -100,32 +92,26 @@ Ext.define('CustomApp', {
 
       var selectedReleaseName = me.down('#release-combobox').getRecord().get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       
-      console.log('selectedReleaseName', selectedReleaseName);
-      
       var myFilters = me._getReleaseFilters(selectedReleaseName);
       
-      console.log('my filters', myFilters, myFilters.toString());
       // if store exists, just load new data
       if (me.releaseStore) {
-        console.log('store exists');
         me.releaseStore.setFilter(myFilters);
         me.releaseStore.load();
 
       // create store
       } else {
-        console.log('creating store');
         me.releaseStore = Ext.create('Rally.data.wsapi.Store', {     // create defectStore on the App (via this) so the code above can test for it's existence!
           model: 'Release',
           autoLoad: true,                         // <----- Don't forget to set this to true! heh
           filters: myFilters,
           listeners: {
               load: function(myStore, myData, success) {
-                  console.log('got release data!', myStore, myData);
                   me._createReleaseTable(myStore, myData);      // if we did NOT pass scope:this below, this line would be incorrectly trying to call _createGrid() on the store which does not exist.
               },
               scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
           },
-          fetch: ['Name', 'StartDate', 'EndDate', 'PlannedVelocity', 'State', 'Theme']   // Look in the WSAPI docs online to see all fields available!
+          fetch: ['Name', 'StartDate', 'EndDate', 'PlannedVelocity', 'State', 'Theme', 'Version', 'ReleaseDate', 'ReleaseStartDate', 'Version']   // Look in the WSAPI docs online to see all fields available!
         });
       }
     },
@@ -139,8 +125,6 @@ Ext.define('CustomApp', {
             value: releaseValue
             });
       
-      console.log('release filter', releaseFilter, releaseFilter.toString());
-      
       return releaseFilter;
         
     },
@@ -152,22 +136,21 @@ Ext.define('CustomApp', {
         var selectedRelease = me.down('#release-combobox').getRecord();
         
         var releaseName = selectedRelease.get('Name');
-
-        
-        console.log('release store:', myReleaseStore);
-        console.log('release data:', myReleaseData);
         
         releaseName = myReleaseData[0].get('Name');
         releaseTheme = myReleaseData[0].get('Theme');
         releaseName = '<p><strong>' + releaseName + '</strong></p>';
         
-        console.log('release name:', releaseName);
-        console.log('release theme:', releaseTheme);
+        releaseVersion = myReleaseData[0].get('Version');
         
-      this.releaseTable = Ext.create('Ext.panel.Panel', {
-          title: 'Table Layout',
-          //width: 300,
-          //height: 150,
+        var releaseStart = new Date(myReleaseData[0].get('ReleaseStartDate'));
+        
+        releaseEnd = new Date(myReleaseData[0].get('ReleaseDate'));
+        
+        releaseState = myReleaseData[0].get('State');
+        
+        this.releaseTable = Ext.create('Ext.panel.Panel', {
+          title: 'Release Overview',
           layout: {
               type: 'table',
               //the total column count must be specified here
@@ -181,13 +164,13 @@ Ext.define('CustomApp', {
               html: releaseName,
               colspan: 2
           }, {
-              html: 'Cell B content'
+              html: 'Version: ' + releaseVersion
           }, {
-              html: 'Cell C content'
+              html: 'Release State: ' + releaseState
           }, {
-              html: 'Cell D content'
+              html: 'Release Start Date: ' + Ext.Date.format(releaseStart, 'F j, Y')
           }, {
-              html: 'Cell E content'
+              html: 'Release Date: ' + Ext.Date.format(releaseEnd, 'F j, Y')
           }, {
               html: releaseTheme,
               colspan: 2
@@ -195,8 +178,6 @@ Ext.define('CustomApp', {
       });
       this.down('#release-container').removeAll();
       this.down('#release-container').add(this.releaseTable);
-//      this.add(this.releaseTable);       // add the grid Component to the app-level Container (by doing this.add, it uses the app container)
-
     },
 
     // Get release data from Rally
@@ -208,138 +189,248 @@ Ext.define('CustomApp', {
       var selectedReleaseName = selectedRelease.get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       
-      console.log('selectedReleaseName', selectedReleaseName, 'selectedReleaseRef', selectedReleaseRef);
-      
       var tagFilter = Ext.create('Rally.data.wsapi.Filter', {
             property: 'Tags.Name',
             operation: 'contains',
             value: 'PRD'
         });      
-      console.log('my filters', tagFilter, tagFilter.toString());
 
       // if store exists, just load new data
       if (me.userStoryStore) {
-        console.log('user story store exists');
-        me.userStoryStore.setFilter(tagFilter);
         me.userStoryStore.load();
 
       // create store
       } else {
-          console.log('creating user story store');
           me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
           autoLoad: true,                         // <----- Don't forget to set this to true! heh
-          filters: tagFilter,
           listeners: {
               load: function(myStore, myData, success) {
-                  console.log('got user story data!', myStore, myData);
                   var count = myStore.count();
-                  console.log("number of prd user stories found: ", count);
                   if (count = 0) {
                       //no PRD user stories for the release
-                      console.log('Warning: No PRD user stories in this release!');
+                      console.log('Warning: No user stories found!');
                   } else {
-                      //for each PRD story in the release get count of children
-                      me._inspectUserStories(myStore, selectedRelease);
-                  }
-                  if (!me.userStoryGrid) {           // only create a grid if it does NOT already exist
-                    me._createPRDUserStoryGrid(myStore);      // if we did NOT pass scope:this below, this line would be incorrectly trying to call _createGrid() on the store which does not exist.
+                      PRDRequirements = me._inspectUserStories(myStore, "PRD");
+                      me._renderRequirementsGrid(PRDRequirements, "PRD");
+                      NFRRequirements = me._inspectUserStories(myStore, "NFR");
+                      me._renderRequirementsGrid(NFRRequirements, "NFR");
                   }
               },
               scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
           },
-          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release']   // Look in the WSAPI docs online to see all fields available!
+          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Children', 'Parent', 'Tags']   // Look in the WSAPI docs online to see all fields available!
         });
       }
     },
     
-    // construct filters for defects with given release
-    _getUserStoryFilters: function(releaseValue, requirementType) {
+    _getPRDUserStories: function(myUserStoryStore, requirementType) {
+        var y = 0;
+        var numStories = myUserStoryStore.count();
         
-        var releaseFilter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Release',
-            operation: '=',
-            value: releaseValue
-            });
-      
-        var tagFilter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Tags.Name',
-            operation: 'contains',
-            value: requirementType
-        });
+        var requirementTypeUserStories = new Array();
         
-//        var userStoryFilter = releaseFilter.and(tagFilter);
-//        console.log('user story filter', userStoryFilter, userStoryFilter.toString());
-//        return userStoryFilter;
-        return tagFilter;
-//          return releaseFilter;
-        
+        do
+        {
+            myUserStory = myUserStoryStore.getAt(y);
+            myTags = myUserStory.get('Tags');
+            if (myTags.Count > 0) {
+                tagsNameArray = myTags._tagsNameArray;
+                var prdUserStory = false;
+                for (tag in tagsNameArray) {
+                    if (tagsNameArray[tag].Name == requirementType) {
+                        prdUserStory = true;
+                    }
+                }
+                if (prdUserStory == true) {
+                    requirementTypeUserStories.push(myUserStory);
+                } else {
+                }
+            }
+            y++;
+        } while (y<numStories);
+        return requirementTypeUserStories;
     },
     
-    //inspect each user story returned from store
-    _inspectUserStories: function(myUserStoryStore) {
+    //get all the releases that the given user story is a part of.
+    //a given user story can be a parent where the children are assigned to multiple releases
+    //a given user story can be a user story that has no children and is assigned to a given release
+    //a given user story can be a user story that has no children and is not assigned to any release
+    //a given user story can be a parent where the children are not assigned to any releases
+    //this function returns an array containing all the releases that this story or it's children have been assigned.
+    _getReleases: function(myUserStory, myUserStoryStore) {
+        var me=this;
+        var releaseRefs = new Array();
+
+        var directChildren = myUserStory.get('DirectChildrenCount');
+
+        if (directChildren == 0) {
+            var storyRelease = myUserStory.get('Release');
+            //is this story assigned to a release
+            if (storyRelease != null) {
+                var storyReleaseRef = storyRelease._ref;
+                releaseRefs.push(storyReleaseRef);
+            } else {
+                releaseRefs.push(null);
+            }
+        } else {
+            //find children user stories
+            var userStoryFormattedID = myUserStory.get('FormattedID');
+            var childrenUserStories = new Array();
+            myUserStoryStore.each(function(myUserStory) {
+                var myParentObj = myUserStory.get('Parent');
+                if (myParentObj != null) {
+                    var myFormattedID = myParentObj.FormattedID;
+                    if (myFormattedID == userStoryFormattedID) {
+                        childrenUserStories.push(myUserStory);
+                    }
+                }
+            }, this);
+
+            for(x in childrenUserStories) {
+                childrenReleases = this._getReleases(childrenUserStories[x], myUserStoryStore);
+                for (x in childrenReleases) {
+                    releaseRefs.push(childrenReleases[x]);
+                }
+            }
+        }
+        return(releaseRefs);
+    },
+    
+    //inspect each user story returned from store to determine if it still needs to bin in the store.
+    _inspectUserStories: function(myUserStoryStore, requirementType) {
         
         var me=this;
 
         var storiesToBeRemoved = new Array();
+        var PRDStories = new Array();
         
         var selectedRelease = me.down('#release-combobox').getRecord();
         var selectedReleaseName = selectedRelease.get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
         var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
+        
+        PRDStories = this._getPRDUserStories(myUserStoryStore, requirementType);
 
-        console.log('myUserStoryStore:', myUserStoryStore);
-        console.log('mySelectedRelease', selectedRelease);
-        var numStories = myUserStoryStore.count();
-        console.log(numStories, ' PRD stories found!');
-        var y = 0;
-        do
-        {
-            myUserStory = myUserStoryStore.getAt(y);
-            console.log('myUserStory:', myUserStory);
-            //check to see if PRD story has no children and in selected release
-            var directChildren = myUserStory.get('DirectChildrenCount');
-            var storyRelease = myUserStory.get('Release');
-            //var storyReleaseRef = storyRelease.get('_ref');
-            console.log('directChildren: ', directChildren);
-            console.log('storyRelease: ', storyRelease);
-            if (directChildren == 0) {
-                //is this story assigned to a release
-                if (storyRelease != null) {
-                    var storyReleaseRef = storyRelease._ref;
-                    console.log('storyReleaseRef:', storyReleaseRef);
-                    console.log('selectedReleaseRef:', selectedReleaseRef);
-                    if (storyReleaseRef != selectedReleaseRef) {
-                        console.log('PRD story has no children and not in the selected release - so remove it from the store');
-                        storiesToBeRemoved.push(myUserStory);
-                    }
+        var numPRDStories = PRDStories.length;
+        var PRDRecords = new Array();
+        var PRDReleases = new Array();
+        for (PRDStory in PRDStories) {
+
+            PRDReleases = this._getReleases(PRDStories[PRDStory], myUserStoryStore);
+            PRDReleases = this._arrayUnique(PRDReleases);
+            
+            //if the PRD User Story is implemented in whole or in part in the selected release add it to the store
+            if (this._arrayContains(PRDReleases, selectedReleaseRef)) {
+                //formulate data to add to store
+                if (PRDReleases.length > 1) {
+                    note = true;
                 } else {
-                    console.log('PRD story has no children and release is null - so remove it from the store');
-                    storiesToBeRemoved.push(myUserStory);
-                }
-            } else {
-                console.log('story has children!');
+                    note = false;
+                }            
+                PRDRecord = {
+                    'UserStory': PRDStories[PRDStory],
+                    'SpansReleases': note
+                };
+                PRDRecords.push(PRDRecord);
             }
-            y++;
-        } while(y<numStories);
-        console.log('user stories to be removed:', storiesToBeRemoved);
-        for (x in storiesToBeRemoved)
-        {
-            console.log('removing user story from the store:', x)
-            myUserStoryStore.remove(storiesToBeRemoved[x]);
         }
+        return PRDRecords;
     },
 
-    // Create and Show a Grid of given iterations
-    _createPRDUserStoryGrid: function(myUserStoryStore) {
+    _renderRequirementsGrid: function(PRDRecords, requirementType) {
+        
+        if (requirementType == 'PRD') {
+            containerName = '#prd-stories-container';
+            storeId = 'prdUserStoryStore';
+            title = 'Functional Requirements';
+        }
+        if (requirementType == 'NFR') {
+            containerName = '#nfr-stories-container';
+            storeId = 'nfrUserStoryStore';
+            title = 'Non-Functional Requirements';
+        }
+        
+        this.down(containerName).removeAll();
+        
+        if (PRDRecords.length != 0) {
+            
+            //create store to hold the data
+            userStoryStore = Ext.create('Ext.data.Store', {
+                storeId: storeId,
+                fields: ['FormattedID', 'Name', 'Description', 'MoSCoW'],
+                proxy: {
+                    type: 'memory',
+                    reader: {
+                        type: 'json',
+                        root: 'items'
+                    }
+                }
+            })
 
-      this.userStoryGrid = Ext.create('Rally.ui.grid.Grid', {
-        store: myUserStoryStore,
-        columnCfgs: [         // Columns to display; must be the same names specified in the fetch: above in the wsapi data store
-          'FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Parent'
-        ]
-      });
+            for (x in PRDRecords) {
+                userStory = PRDRecords[x].UserStory;
 
-      this.down('#prd-stories-container').add(this.userStoryGrid);
+                PRDRecord = {
+                    'FormattedID': userStory.get('FormattedID'),
+                    'Name': userStory.get('Name'),
+                    'Description': userStory.get('Description'),
+                    'MoSCoW': userStory.get('c_MoSCoW')
+                };
+                userStoryStore.add(PRDRecord);                
+            }
+
+            //create and display the grid
+            userStoryGrid = Ext.create('Ext.grid.Panel', {
+                title: title,
+                store: Ext.data.StoreManager.lookup(storeId),
+                columns: [
+                    { text: 'FormattedID', dataIndex: 'FormattedID', width: 100},
+                    { text: 'Name', dataIndex: 'Name', width: 400},
+                    { text: 'Description', dataIndex: 'Description', flex: 1, renderer: function(value){
+                        var display = '<p style="white-space:normal">' + value + '</p>';
+                        return display;
+                        }},
+                    { text: 'MoSCoW', dataIndex: 'MoSCoW', width: 100
+                    }
+                    ],
+                    renderTo: Ext.getBody()
+            });
+            this.down(containerName).add(userStoryGrid);
+        } else {
+            //there are no user stories to be displayed.  Let's create a simple message to inform the user
+            userStoryLabel = Ext.create('Ext.form.Panel', {
+                title: title,
+                width:400,
+                padding: 10,
+                renderTo: Ext.getBody(),
+                layout: {
+                    type: 'hbox',
+                    align: 'middle'
+                },
+                items: [{
+                    xtype: 'label',
+                    forID: 'myFieldId',
+                    text: 'No user stories with ' + requirementType + ' tag found in selected release!',
+                    margin: '0 0 0 10'
+                }]
+            });
+            this.down(containerName).add(userStoryLabel);
+        }
+    },
+    
+    _arrayUnique: function(a) {
+        return a.reduce(function(p, c) {
+            if (p.indexOf(c) < 0) p.push(c);
+            return p;
+        }, []);
+    },
+
+    _arrayContains: function(a, obj) {
+        for (var i = 0; i < a.length; i++) {
+            if (a[i] === obj) {
+                return true;
+            }
+        }
+        return false;
     }
-
 });
