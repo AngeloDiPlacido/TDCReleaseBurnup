@@ -79,7 +79,19 @@ Ext.define('CustomApp', {
         });
         
         me.down('#pulldown-container').add(releaseComboBox);
-
+        
+        var testPlanCheckbox = Ext.create('Rally.ui.CheckboxField', {
+            xtype: 'rallycheckboxfield',
+            itemId: 'testplan-checkbox',
+            fieldLabel: 'Include Test Plan',
+            value: false,
+            listeners: {
+                change: me._loadData,
+                scope: me
+            }
+        });
+        me.down('#pulldown-container').add(testPlanCheckbox);
+        
      },
 
     _loadData: function() {
@@ -220,6 +232,7 @@ Ext.define('CustomApp', {
                       //no PRD user stories for the release
                       console.log('Warning: No user stories found!');
                   } else {
+                      console.log('user stories fetched: ', myStore, myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
                       me._renderRequirementsGrid(PRDRequirements, "PRD");
                       NFRRequirements = me._inspectUserStories(myStore, "NFR");
@@ -228,7 +241,7 @@ Ext.define('CustomApp', {
               },
               scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
           },
-          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Children', 'Parent', 'Tags']   // Look in the WSAPI docs online to see all fields available!
+          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Children', 'Parent', 'Tags', 'c_TestPlan']   // Look in the WSAPI docs online to see all fields available!
         });
       }
     },
@@ -361,12 +374,20 @@ Ext.define('CustomApp', {
         
         this.down(containerName).removeAll();
         
+        //check value of checkbox for test plan to detemine if we need to add a column for test plan
+        var testPlanCheckboxValue = this.down('#testplan-checkbox').getValue();
+        console.log('checkbox value: ', testPlanCheckboxValue);
+        gridFields = ['FormattedID', 'Name', 'Description', 'MoSCoW'];
+        if (testPlanCheckboxValue == true) {
+            gridFields.push('Test Plan')
+        };
+        
         if (PRDRecords.length != 0) {
             
             //create store to hold the data
             userStoryStore = Ext.create('Ext.data.Store', {
                 storeId: storeId,
-                fields: ['FormattedID', 'Name', 'Description', 'MoSCoW'],
+                fields: gridFields,
                 proxy: {
                     type: 'memory',
                     reader: {
@@ -385,23 +406,38 @@ Ext.define('CustomApp', {
                     'Description': userStory.get('Description'),
                     'MoSCoW': userStory.get('c_MoSCoW')
                 };
+
+                if (testPlanCheckboxValue == true) {
+                    PRDRecord['Test Plan'] = userStory.get('c_TestPlan');
+                };
+
+                console.log('PRDRecord: ', PRDRecord);
                 userStoryStore.add(PRDRecord);                
             }
+
+            gridColumns = [
+                { text: 'FormattedID', dataIndex: 'FormattedID', width: 100},
+                { text: 'Name', dataIndex: 'Name', width: 400},
+                { text: 'Description', dataIndex: 'Description', flex: 1, renderer: function(value){
+                    var display = '<p style="white-space:normal">' + value + '</p>';
+                    return display;
+                    }},
+                { text: 'MoSCoW', dataIndex: 'MoSCoW', width: 100
+                }
+                ];
+    
+            if (testPlanCheckboxValue == true) {
+                gridColumns.push({text: 'Test Plan', dataIndex: 'Test Plan', width: 400, renderer: function(value){
+                    var display = '<p style="white-space:normal">' + value + '</p>';
+                    return display;
+                    }});
+            };
 
             //create and display the grid
             userStoryGrid = Ext.create('Ext.grid.Panel', {
                 title: title,
                 store: Ext.data.StoreManager.lookup(storeId),
-                columns: [
-                    { text: 'FormattedID', dataIndex: 'FormattedID', width: 100},
-                    { text: 'Name', dataIndex: 'Name', width: 400},
-                    { text: 'Description', dataIndex: 'Description', flex: 1, renderer: function(value){
-                        var display = '<p style="white-space:normal">' + value + '</p>';
-                        return display;
-                        }},
-                    { text: 'MoSCoW', dataIndex: 'MoSCoW', width: 100
-                    }
-                    ],
+                columns: gridColumns,
                     renderTo: Ext.getBody()
             });
             this.down(containerName).add(userStoryGrid);
