@@ -48,8 +48,6 @@ Ext.define('CustomApp', {
     // Entry Point to App
     launch: function() {
 
-      console.log('TDC PRD Report');     // see console api: https://developers.google.com/chrome-developer-tools/docs/console-api
-
       this._loadReleases();
     },
 
@@ -223,7 +221,6 @@ Ext.define('CustomApp', {
                       //no PRD user stories for the release
                       console.log('Warning: No user stories found!');
                   } else {
-                      console.log('user stories fetched: ', myStore, myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
                       me._renderRequirementsGrid(PRDRequirements, "PRD");
                       NFRRequirements = me._inspectUserStories(myStore, "NFR");
@@ -367,7 +364,6 @@ Ext.define('CustomApp', {
         
         //check value of checkbox for test plan to detemine if we need to add a column for test plan
         var testPlanCheckboxValue = this.down('#testplan-checkbox').getValue();
-        console.log('checkbox value: ', testPlanCheckboxValue);
         gridFields = ['FormattedID', 'Name', 'Description', 'MoSCoW'];
         if (testPlanCheckboxValue == true) {
             gridFields.push('Test Plan')
@@ -402,7 +398,6 @@ Ext.define('CustomApp', {
                     PRDRecord['Test Plan'] = userStory.get('c_TestPlan');
                 };
 
-                console.log('PRDRecord: ', PRDRecord);
                 userStoryStore.add(PRDRecord);                
             }
 
