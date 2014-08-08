@@ -245,28 +245,23 @@ Ext.define('CustomApp', {
           
           me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
-          limit: Infinity,
-          pageSize: 30000,
+          limit: "Infinity",
+          pageSize: 200,
           autoLoad: true,
           context: {
               project: this.getContext().getProjectRef(),
               projectScopeUp: true,
               projectScopeDown: true
           },
-          //filters: me._getUserStoryFilters(),
-          /*
-          filters: [
-              {
-                  property: 'FormattedID',
-                  operator: '>',
-                  value: 'US9000'
-              }],
-          */
+          filters: me._getUserStoryFilters(),
+
+
           sorters: [
               {
                   property: 'FormattedID',
                   direction: 'DESC'
               }],
+
           listeners: {
               load: function(myStore, myData, success) {
                   var count = myStore.count();
@@ -275,8 +270,8 @@ Ext.define('CustomApp', {
                       //no PRD user stories for the release
                       console.log('Warning: No user stories found!');
                   } else {
-                      //console.log('Found ', count, ' user stories');
-                      console.log('User Stories found in project: ', myStore, myData);
+                      console.log('Found ', count, ' user stories');
+                      //console.log('User Stories found in project: ', myStore, myData);
                       //console.log('myData:', myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
                       //console.log("PRD User Stories found in project: ", PRDRequirements);
