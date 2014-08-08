@@ -174,9 +174,9 @@ Ext.define('CustomApp', {
         
         releaseName = myReleaseData[0].get('Name');
         releaseTheme = myReleaseData[0].get('Theme');
-        console.log('release name: ', releaseName);
-        console.log('release theme: ', releaseTheme);
-        console.log('release store: ', myReleaseStore, 'release data: ', myReleaseData);
+//        console.log('release name: ', releaseName);
+//        console.log('release theme: ', releaseTheme);
+//        console.log('release store: ', myReleaseStore, 'release data: ', myReleaseData);
         releaseName = '<p><strong>' + releaseName + '</strong></p>';
         
         releaseVersion = myReleaseData[0].get('Version');
@@ -255,9 +255,9 @@ Ext.define('CustomApp', {
                   var count = myStore.count();
                   if (count == 0) {
                       //no PRD user stories for the release
-                      console.log('Warning: No user stories found!');
+                      //console.log('Warning: No user stories found!');
                   } else {
-                      console.log('Found ', count, ' user stories');
+                      //console.log('Found ', count, ' user stories');
                       //console.log('User Stories found in project: ', myStore, myData);
                       //console.log('myData:', myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
