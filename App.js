@@ -160,7 +160,7 @@ Ext.define('CustomApp', {
 
         var userStoryFilter = containsNFRTagFilter.or(containsPRDTagFilter);
         userStoryFilter = userStoryFilter.or(hasChildrenFilter);
-        // console.log('user story filter: ', userStoryFilter.toString(), 'filter object', userStoryFilter);
+        //console.log('user story filter: ', userStoryFilter.toString(), 'filter object', userStoryFilter);
         return userStoryFilter;
     },
 
@@ -174,9 +174,9 @@ Ext.define('CustomApp', {
         
         releaseName = myReleaseData[0].get('Name');
         releaseTheme = myReleaseData[0].get('Theme');
-//        console.log('release name: ', releaseName);
-//        console.log('release theme: ', releaseTheme);
-//        console.log('release store: ', myReleaseStore, 'release data: ', myReleaseData);
+        //console.log('release name: ', releaseName);
+        //console.log('release theme: ', releaseTheme);
+        //console.log('release store: ', myReleaseStore, 'release data: ', myReleaseData);
         releaseName = '<p><strong>' + releaseName + '</strong></p>';
         
         releaseVersion = myReleaseData[0].get('Version');
@@ -239,12 +239,29 @@ Ext.define('CustomApp', {
       // 2. filter by user stories that have the PRD or the NFR tag, and
       // 3. filter by user stories that have children
       } else {
+          var currentProject = this.getContext().getProject();
+          //console.log('current project: ', currentProject);
+          
+          
           me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
           limit: Infinity,
           pageSize: 30000,
           autoLoad: true,
-          filters: me._getUserStoryFilters(),
+          context: {
+              project: this.getContext().getProjectRef(),
+              projectScopeUp: true,
+              projectScopeDown: true
+          },
+          //filters: me._getUserStoryFilters(),
+          /*
+          filters: [
+              {
+                  property: 'FormattedID',
+                  operator: '>',
+                  value: 'US9000'
+              }],
+          */
           sorters: [
               {
                   property: 'FormattedID',
@@ -253,12 +270,13 @@ Ext.define('CustomApp', {
           listeners: {
               load: function(myStore, myData, success) {
                   var count = myStore.count();
+                  //console.log('myStore: ', myStore, myData);
                   if (count == 0) {
                       //no PRD user stories for the release
-                      //console.log('Warning: No user stories found!');
+                      console.log('Warning: No user stories found!');
                   } else {
                       //console.log('Found ', count, ' user stories');
-                      //console.log('User Stories found in project: ', myStore, myData);
+                      console.log('User Stories found in project: ', myStore, myData);
                       //console.log('myData:', myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
                       //console.log("PRD User Stories found in project: ", PRDRequirements);
@@ -277,7 +295,7 @@ Ext.define('CustomApp', {
     
     _getPRDUserStories: function(myUserStoryStore, requirementType) {
 
-        // console.log("In _getPRDUserStories - myUserStoryStore: ", myUserStoryStore, "requirement type:", requirementType);
+        //console.log("In _getPRDUserStories - myUserStoryStore: ", myUserStoryStore, "requirement type:", requirementType);
         var y = 0;
         var numStories = myUserStoryStore.count();
         
@@ -302,6 +320,7 @@ Ext.define('CustomApp', {
                 }
                 if (prdUserStory == true) {
                     requirementTypeUserStories.push(myUserStory);
+                    //console.log('pushing user story into array: ', myUserStory);
                 } else {
                 }
             }
@@ -319,6 +338,7 @@ Ext.define('CustomApp', {
     _getReleases: function(myUserStory, myUserStoryStore) {
         var me=this;
         var releaseRefs = new Array();
+        var releaseNames = new Array();
 
         var directChildren = myUserStory.get('DirectChildrenCount');
 
@@ -326,10 +346,15 @@ Ext.define('CustomApp', {
             var storyRelease = myUserStory.get('Release');
             //is this story assigned to a release
             if (storyRelease != null) {
+                //console.log('story release object: ', storyRelease);
                 var storyReleaseRef = storyRelease._ref;
+                storyReleaseName = storyRelease.Name;
+                //console.log('storyReleaseRef: ', storyReleaseRef, 'storyReleaseName: ', storyReleaseName);
                 releaseRefs.push(storyReleaseRef);
+                releaseNames.push(storyReleaseName);
             } else {
                 releaseRefs.push(null);
+                releaseNames.push("");
             }
         } else {
             //find children user stories
@@ -348,11 +373,13 @@ Ext.define('CustomApp', {
             for(x in childrenUserStories) {
                 childrenReleases = this._getReleases(childrenUserStories[x], myUserStoryStore);
                 for (x in childrenReleases) {
-                    releaseRefs.push(childrenReleases[x]);
+                    // releaseRefs.push(childrenReleases[x]);
+                    releaseNames.push(childrenReleases[x]);
                 }
             }
         }
-        return(releaseRefs);
+        //return(releaseRefs);
+        return(releaseNames);
     },
     
     //inspect each user story returned from store to determine if it still needs to bin in the store.
@@ -374,10 +401,11 @@ Ext.define('CustomApp', {
         for (PRDStory in PRDStories) {
 
             PRDReleases = this._getReleases(PRDStories[PRDStory], myUserStoryStore);
+            //console.log('PRDReleases for user story ', PRDStories[PRDStory].get('FormattedID'), ' are: ', PRDReleases);
             PRDReleases = this._arrayUnique(PRDReleases);
             
             //if the PRD User Story is implemented in whole or in part in the selected release add it to the store
-            if (this._arrayContains(PRDReleases, selectedReleaseRef)) {
+            if (this._arrayContains(PRDReleases, selectedReleaseName)) {
                 //formulate data to add to store
                 if (PRDReleases.length > 1) {
                     note = true;
