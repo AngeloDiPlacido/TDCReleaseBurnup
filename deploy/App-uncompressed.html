@@ -148,6 +148,31 @@ Ext.define('CustomApp', {
         
     },
     
+    _getUserStoryFilters: function() {
+        var containsPRDTagFilter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'Tags.Name',
+            operator: 'contains',
+            value: 'PRD'
+        });
+
+        var containsNFRTagFilter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'Tags.Name',
+            operator: 'contains',
+            value: 'NFR'
+        });
+
+        var hasChildrenFilter = Ext.create('Rally.data.wsapi.Filter', {
+            property: 'DirectChildrenCount',
+            operator: '>',
+            value: 0
+        });
+
+        var userStoryFilter = containsNFRTagFilter.or(containsPRDTagFilter);
+        userStoryFilter = userStoryFilter.or(hasChildrenFilter);
+        // console.log('user story filter: ', userStoryFilter.toString(), 'filter object', userStoryFilter);
+        return userStoryFilter;
+    },
+
     // Create and Show a information for a given release
     _createReleaseTable: function(myReleaseStore, myReleaseData) {
         
@@ -158,6 +183,9 @@ Ext.define('CustomApp', {
         
         releaseName = myReleaseData[0].get('Name');
         releaseTheme = myReleaseData[0].get('Theme');
+        console.log('release name: ', releaseName);
+        console.log('release theme: ', releaseTheme);
+        console.log('release store: ', myReleaseStore, 'release data: ', myReleaseData);
         releaseName = '<p><strong>' + releaseName + '</strong></p>';
         
         releaseVersion = myReleaseData[0].get('Version');
@@ -207,32 +235,45 @@ Ext.define('CustomApp', {
       var selectedRelease = me.down('#release-combobox').getRecord();
       var selectedReleaseName = selectedRelease.get('Name');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
       var selectedReleaseRef = selectedRelease.get('_ref');              // the _ref is unique, unlike the iteration name that can change; lets query on it instead!
-      
-      var tagFilter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'Tags.Name',
-            operation: 'contains',
-            value: 'PRD'
-        });      
 
       // if store exists, just load new data
       if (me.userStoryStore) {
         me.userStoryStore.load();
 
       // create store
+      // a few notes here.  the api only returns 200 user stories.  Some projects have much more than 200 stories so the report
+      // was generating properly.  A ticket has been opened with rally (case #66347).  In the meantime the following was done to
+      // 'patch' the report so it would work
+      // 1. we are sorting based on FormattedID is descending order, and
+      // 2. filter by user stories that have the PRD or the NFR tag, and
+      // 3. filter by user stories that have children
       } else {
           me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
-          autoLoad: true,                         // <----- Don't forget to set this to true! heh
+          limit: Infinity,
+          pageSize: 30000,
+          autoLoad: true,
+          filters: me._getUserStoryFilters(),
+          sorters: [
+              {
+                  property: 'FormattedID',
+                  direction: 'DESC'
+              }],
           listeners: {
               load: function(myStore, myData, success) {
                   var count = myStore.count();
-                  if (count = 0) {
+                  if (count == 0) {
                       //no PRD user stories for the release
                       console.log('Warning: No user stories found!');
                   } else {
+                      console.log('Found ', count, ' user stories');
+                      //console.log('User Stories found in project: ', myStore, myData);
+                      //console.log('myData:', myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
+                      //console.log("PRD User Stories found in project: ", PRDRequirements);
                       me._renderRequirementsGrid(PRDRequirements, "PRD");
                       NFRRequirements = me._inspectUserStories(myStore, "NFR");
+                      //console.log('NFR User Stories found in project: ', NFRRequirements);
                       me._renderRequirementsGrid(NFRRequirements, "NFR");
                   }
               },
@@ -244,19 +285,26 @@ Ext.define('CustomApp', {
     },
     
     _getPRDUserStories: function(myUserStoryStore, requirementType) {
+
+        // console.log("In _getPRDUserStories - myUserStoryStore: ", myUserStoryStore, "requirement type:", requirementType);
         var y = 0;
         var numStories = myUserStoryStore.count();
         
         var requirementTypeUserStories = new Array();
-        
+
         do
         {
             myUserStory = myUserStoryStore.getAt(y);
+            formattedID = myUserStory.get('FormattedID');
+            //console.log('FormattedID: ', formattedID, ' myUserStory: ', myUserStory);
             myTags = myUserStory.get('Tags');
             if (myTags.Count > 0) {
+                //console.log('user story has tags:', myTags);
                 tagsNameArray = myTags._tagsNameArray;
                 var prdUserStory = false;
+                //console.log('tags name array: ', tagsNameArray);
                 for (tag in tagsNameArray) {
+                    //console.log('tag name:', tagsNameArray[tag].Name);
                     if (tagsNameArray[tag].Name == requirementType) {
                         prdUserStory = true;
                     }
@@ -321,7 +369,6 @@ Ext.define('CustomApp', {
         
         var me=this;
 
-        var storiesToBeRemoved = new Array();
         var PRDStories = new Array();
         
         var selectedRelease = me.down('#release-combobox').getRecord();
