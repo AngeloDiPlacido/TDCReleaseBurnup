@@ -153,14 +153,14 @@ Ext.define('CustomApp', {
         });
 
         var hasChildrenFilter = Ext.create('Rally.data.wsapi.Filter', {
-            property: 'DirectChildrenCount',
-            operator: '>',
-            value: 0
+            property: 'Parent',
+            operator: '!=',
+            value: null
         });
 
         var userStoryFilter = containsNFRTagFilter.or(containsPRDTagFilter);
         userStoryFilter = userStoryFilter.or(hasChildrenFilter);
-        //console.log('user story filter: ', userStoryFilter.toString(), 'filter object', userStoryFilter);
+        console.log('user story filter: ', userStoryFilter.toString(), 'filter object', userStoryFilter);
         return userStoryFilter;
     },
 
@@ -240,12 +240,10 @@ Ext.define('CustomApp', {
       // 3. filter by user stories that have children
       } else {
           var currentProject = this.getContext().getProject();
-          //console.log('current project: ', currentProject);
-          
-          
+
           me.userStoryStore = Ext.create('Rally.data.wsapi.Store', {
           model: 'User Story',
-          limit: "Infinity",
+          limit: Infinity,
           pageSize: 200,
           autoLoad: true,
           context: {
@@ -254,8 +252,6 @@ Ext.define('CustomApp', {
               projectScopeDown: true
           },
           filters: me._getUserStoryFilters(),
-
-
           sorters: [
               {
                   property: 'FormattedID',
@@ -271,7 +267,7 @@ Ext.define('CustomApp', {
                       console.log('Warning: No user stories found!');
                   } else {
                       console.log('Found ', count, ' user stories');
-                      //console.log('User Stories found in project: ', myStore, myData);
+                      console.log('User Stories found in project: ', myStore, myData);
                       //console.log('myData:', myData);
                       PRDRequirements = me._inspectUserStories(myStore, "PRD");
                       //console.log("PRD User Stories found in project: ", PRDRequirements);
@@ -283,7 +279,7 @@ Ext.define('CustomApp', {
               },
               scope: me                         // This tells the wsapi data store to forward pass along the app-level context into ALL listener functions
           },
-          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Children', 'Parent', 'Tags', 'c_TestPlan']   // Look in the WSAPI docs online to see all fields available!
+          fetch: ['FormattedID', 'Name', 'Description', 'c_MoSCow', 'Release', 'Children', 'Parent', 'Tags', 'c_TestPlan', 'HasParent']   // Look in the WSAPI docs online to see all fields available!
         });
       }
     },
